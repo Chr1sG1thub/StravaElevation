@@ -25,7 +25,7 @@ function calculateElevationGain(trackpoints, userCallback) {
     
   const cbName = `handle_${Date.now()}_${callbackId++}`;
   console.log('Callback name:', cbName);
-  console.log('API URL:', `https://api.opentopodata.org/v1/copernicus?locations=${locations}&interpolation=bilinear&jsonp=${cbName}`);
+  console.log('API URL:', `https://api.opentopodata.org/v1/eudem25m?locations=${locations}&interpolation=bilinear&jsonp=${cbName}`);
   
   // ✅ Global callback with logging
   window[cbName] = function(apiResults) {
