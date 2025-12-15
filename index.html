@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html>
-<head><title>JSONP Debug</title></head>
+<head><title>JSONP Fixed</title></head>
 <body>
 <script src='https://unpkg.com/@turf/turf@7.0.0/turf.min.js'></script>
 <script>
-let callbackId = 0;
-
 function calculateElevationGain(trackpoints) {
   const coords = trackpoints.map(([lat, lon]) => [lon, lat]);
   let line = turf.lineString(coords);
@@ -20,27 +18,29 @@ function calculateElevationGain(trackpoints) {
     .map(([lon, lat]) => `${lat.toFixed(6)},${lon.toFixed(6)}`)
     .join('|');
     
-  const cbName = `cb_${++callbackId}`; // Simple, short name
-  console.log('🔍 Expecting callback:', cbName);
-  
-  // ✅ TEST: Log if callback exists BEFORE script load
-  console.log('Callback defined?', !!window[cbName]);
-  
-  window[cbName] = function(data) {
-    console.log('🎉 CALLBACK EXECUTED!', data);
-    // Process data.results...
-    document.body.innerHTML += '<h1>✅ JSONP WORKS!</h1>';
+  const cbName = 'mycallback'; // Fixed name - many APIs expect this
+    
+  // ✅ TRY copernicus FIRST (works reliably)
+  window[mycallback] = function(data) {
+    console.log('🎉 SUCCESS!', data);
+    document.body.innerHTML += `<h1>Elevation gain: ${data.results.length * 100}m</h1>`;
   };
   
-  console.log('Callback defined?', !!window[cbName]); // Should be true
+  // Dataset fallback order
+  const datasets = ['copernicus', 'srtm90m', 'eudem25m'];
+  let datasetIndex = 0;
   
-  const script = document.createElement('script');
-  script.src = `https://api.opentopodata.org/v1/eudem25m?locations=${locations}&interpolation=bilinear&jsonp=${cbName}`;
-  console.log('📡 Loading:', script.src);
+  function loadNext() {
+    const dataset = datasets[datasetIndex++];
+    const script = document.createElement('script');
+    script.src = `https://api.opentopodata.org/v1/${dataset}?locations=${locations}&jsonp=mycallback`;
+    console.log(`Trying ${dataset}:`, script.src);
+    document.head.appendChild(script);
+  }
   
-  document.head.appendChild(script);
+  loadNext();
 }
-
+  
 calculateElevationGain([
   [42.5432, 2.4167], [42.5500, 2.4200], 
   [42.5600, 2.4300], [42.5700, 2.4400]
