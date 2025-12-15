@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Strava Elevation</title>
+</head>
+
+<body>
+  <script>
+    
+import simplify from 'https://unpkg.com/@turf/turf@7.0.0/turf.min.js';
+import { lineString } from 'https://unpkg.com/@turf/helpers@latest/dist/es/index.js';
+
+// Input: array of [lat, lon, ele] from GPX <trkpt>
+async function calculateElevationGain(trackpoints) {
+  // Step 1: Convert to GeoJSON LineString (ignore original ele for correction)
+  const coords = trackpoints.map(([lat, lon]) => [lon, lat]); // Turf expects [lon, lat]
+  let line = lineString(coords);
+  
+  // Step 2: Simplify to ~100 points (shape-preserving)
+  let tolerance = 0.0001;
+  while (line.geometry.coordinates.length > 100) {
+    line = simplify.default(line, { tolerance, highQuality: false });
+    tolerance *= 1.2;
+  }
+  
+  // Step 3: Batch query OpenTopoData (Copernicus DEM good for Occitanie)
+  const locations = line.geometry.coordinates
+    .map(([lon, lat]) => `${lat.toFixed(6)},${lon.toFixed(6)}`)
+    .join('|');
+    
+  const url = `https://api.opentopodata.org/v1/copernicus?locations=${locations}&interpolation=bilinear`;
+  const response = await fetch(url);
+  const { results } = await response.json();
+  
+  // Filter valid elevations
+  const elevations = results
+    .map(r => r.elevation)
+    .filter(e => e !== null && !isNaN(e));
+  
+  if (elevations.length < 2) {
+    throw new Error('Insufficient valid elevation data');
+  }
+  
+  // Step 4: Strava-style gain (positive deltas > 0.5m threshold)
+  let gain = 0;
+  const threshold = 0.5; // meters
+  
+  for (let i = 1; i < elevations.length; i++) {
+    const delta = elevations[i] - elevations[i - 1];
+    if (delta > threshold) {
+      gain += delta;
+    }
+  }
+  
+  return {
+    totalGain: Math.round(gain),
+    pointsUsed: elevations.length,
+    originalPoints: trackpoints.length,
+    simplifiedTolerance: tolerance.toFixed(6)
+  };
+}
+
+// Example usage with sample GPX data
+    
+function main(){
+  const sampleTrack = [
+  [42.5432, 2.4167, 350],  // Vinça start
+  [42.5500, 2.4200, 360],
+  // ... 1000+ points from your cycling route
+  [42.6000, 2.4500, 800]   // Col finish
+];
+
+calculateElevationGain(sampleTrack).then(result => {
+  console.log(`Elevation gain: ${result.totalGain}m (from ${result.originalPoints} to ${result.pointsUsed} points)`);
+});
+
+}
+
+</script>
+</body>
+
+</html>
