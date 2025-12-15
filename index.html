@@ -16,7 +16,7 @@ async function calculateElevationGain(trackpoints) {
   
   const locations = line.geometry.map(([lon, lat]) => `${lat.toFixed(6)},${lon.toFixed(6)}`).join('|');
   const url = `https://corsproxy.io/?${encodeURIComponent(
-    `https://api.opentopodata.org/v1/copernicus?locations=${locations}&interpolation=bilinear`
+    `https://api.opentopodata.org/v1/eudem25m?locations=${locations}&interpolation=bilinear`
   )}`;
   
   try {
