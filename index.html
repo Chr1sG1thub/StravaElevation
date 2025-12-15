@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
-<head><title>JSONP Fixed</title></head>
+<head><title>Strava Elevation - Proxy</title></head>
 <body>
 <script src='https://unpkg.com/@turf/turf@7.0.0/turf.min.js'></script>
 <script>
-function calculateElevationGain(trackpoints) {
+async function calculateElevationGain(trackpoints) {
   const coords = trackpoints.map(([lat, lon]) => [lon, lat]);
   let line = turf.lineString(coords);
   
@@ -14,36 +14,38 @@ function calculateElevationGain(trackpoints) {
     tolerance *= 1.2;
   }
   
-  const locations = line.geometry.coordinates
-    .map(([lon, lat]) => `${lat.toFixed(6)},${lon.toFixed(6)}`)
-    .join('|');
-    
-  const cbName = 'mycallback'; // Fixed name - many APIs expect this
-    
-  // ✅ TRY copernicus FIRST (works reliably)
-  window[cbName] = function(data) {
-    console.log('🎉 SUCCESS!', data);
-    document.body.innerHTML += `<h1>Elevation gain: ${data.results.length * 100}m</h1>`;
-  };
+  const locations = line.geometry.map(([lon, lat]) => `${lat.toFixed(6)},${lon.toFixed(6)}`).join('|');
+  const url = `https://corsproxy.io/?${encodeURIComponent(
+    `https://api.opentopodata.org/v1/copernicus?locations=${locations}&interpolation=bilinear`
+  )}`;
   
-  // Dataset fallback order
-  const datasets = ['copernicus', 'srtm90m', 'eudem25m'];
-  let datasetIndex = 0;
-  
-  function loadNext() {
-    const dataset = datasets[datasetIndex++];
-    const script = document.createElement('script');
-    script.src = `https://api.opentopodata.org/v1/${dataset}?locations=${locations}&jsonp=mycallback`;
-    console.log(`Trying ${dataset}:`, script.src);
-    document.head.appendChild(script);
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    const elevations = data.results
+      .map(r => r.elevation)
+      .filter(e => e !== null && !isNaN(e));
+    
+    let gain = 0, threshold = 0.5;
+    for (let i = 1; i < elevations.length; i++) {
+      const delta = elevations[i] - elevations[i-1];
+      if (delta > threshold) gain += delta;
+    }
+    
+    document.body.innerHTML += `
+      <h1>✅ Elevation gain: ${Math.round(gain)}m</h1>
+      <p>${trackpoints.length} → ${elevations.length} points</p>
+    `;
+  } catch (err) {
+    document.body.innerHTML += `<h1>❌ Error: ${err.message}</h1>`;
   }
-  
-  loadNext();
 }
-  
+
 calculateElevationGain([
   [42.5432, 2.4167], [42.5500, 2.4200], 
-  [42.5600, 2.4300], [42.5700, 2.4400]
+  [42.5600, 2.4300], [42.5700, 2.4400],
+  [42.5800, 2.4450], [42.6000, 2.4500]
 ]);
 </script>
 </body>
