@@ -60,7 +60,7 @@ function calculateElevationGain(trackpoints, userCallback) {
   };
   
   const script = document.createElement('script');
-  script.src = `https://api.opentopodata.org/v1/copernicus?locations=${locations}&interpolation=bilinear&jsonp=${cbName}`;
+  script.src = `https://api.opentopodata.org/v1/eudem25m?locations=${locations}&interpolation=bilinear&jsonp=${cbName}`;
   script.onerror = () => {
     console.error('❌ Script failed to load');
     userCallback({error: 'API request failed'});
