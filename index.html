@@ -20,7 +20,7 @@ function calculateElevationGainJSONP(trackpoints, callback) {
     .join('|');
     
   const script = document.createElement('script');
-  script.src = `https://api.opentopodata.org/v1/copernicus?locations=${locations}&interpolation=bilinear&jsonp=${callback}`;
+  script.src = `https://api.opentopodata.org/v1/eudem25m?locations=${locations}&interpolation=bilinear&jsonp=${callback}`;
   document.head.appendChild(script);
   
   // Global callback handler
