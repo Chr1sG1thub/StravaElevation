@@ -3,22 +3,19 @@
 <head>
 <title>Strava Elevation</title>
 </head>
-
 <body>
-    
-<script src='https://unpkg.com/@turf/turf@7.0.0/turf.min.js'>
-
-  <script>
+<script src='https://unpkg.com/@turf/turf@7.0.0/turf.min.js'></script>
+<script>
 // Input: array of [lat, lon, ele] from GPX <trkpt>
 async function calculateElevationGain(trackpoints) {
   // Step 1: Convert to GeoJSON LineString (ignore original ele for correction)
   const coords = trackpoints.map(([lat, lon]) => [lon, lat]); // Turf expects [lon, lat]
-  let line = lineString(coords);
+  let line = turf.lineString(coords);  // ✅ turf.lineString
   
   // Step 2: Simplify to ~100 points (shape-preserving)
   let tolerance = 0.0001;
   while (line.geometry.coordinates.length > 100) {
-    line = simplify.default(line, { tolerance, highQuality: false });
+    line = turf.simplify(line, { tolerance, highQuality: false });  // ✅ turf.simplify (no .default)
     tolerance *= 1.2;
   }
   
@@ -60,24 +57,23 @@ async function calculateElevationGain(trackpoints) {
 }
 
 // Example usage with sample GPX data
-    
 function main(){
   const sampleTrack = [
-  [42.5432, 2.4167, 350],  // Vinça start
-  [42.5500, 2.4200, 360],
-  // ... 1000+ points from your cycling route
-  [42.6000, 2.4500, 800]   // Col finish
-];
+    [42.5432, 2.4167, 350],  // Vinça start
+    [42.5500, 2.4200, 360],
+    [42.5600, 2.4300, 450],
+    [42.5700, 2.4400, 600],
+    [42.5800, 2.4450, 700],
+    [42.6000, 2.4500, 800]   // Col finish
+  ];
 
-calculateElevationGain(sampleTrack).then(result => {
-  console.log(`Elevation gain: ${result.totalGain}m (from ${result.originalPoints} to ${result.pointsUsed} points)`);
-});
-
+  calculateElevationGain(sampleTrack).then(result => {
+    console.log(`Elevation gain: ${result.totalGain}m (from ${result.originalPoints} to ${result.pointsUsed} points)`);
+    document.body.innerHTML += `<h1>Elevation gain: ${result.totalGain}m</h1><p>${result.originalPoints} → ${result.pointsUsed} points</p>`;
+  }).catch(err => console.error(err));
 }
 
 main();
-
 </script>
 </body>
-
 </html>
