@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html>
-<head><title>Strava Elevation</title></head>
+<head><title>Strava Elevation Debug</title></head>
 <body>
 <script src='https://unpkg.com/@turf/turf@7.0.0/turf.min.js'></script>
 <script>
-let callbackId = 0; // Unique ID generator
+let callbackId = 0;
 
 function calculateElevationGain(trackpoints, userCallback) {
+  console.log('Starting with', trackpoints.length, 'points');
+  
   const coords = trackpoints.map(([lat, lon]) => [lon, lat]);
   let line = turf.lineString(coords);
   
@@ -14,46 +16,68 @@ function calculateElevationGain(trackpoints, userCallback) {
   while (line.geometry.coordinates.length > 100) {
     line = turf.simplify(line, { tolerance, highQuality: false });
     tolerance *= 1.2;
+    console.log('Simplified to', line.geometry.coordinates.length, 'points');
   }
   
   const locations = line.geometry.coordinates
     .map(([lon, lat]) => `${lat.toFixed(6)},${lon.toFixed(6)}`)
     .join('|');
     
-  const cbName = `handle_${Date.now()}_${callbackId++}`; // Unique name!
+  const cbName = `handle_${Date.now()}_${callbackId++}`;
+  console.log('Callback name:', cbName);
+  console.log('API URL:', `https://api.opentopodata.org/v1/copernicus?locations=${locations}&interpolation=bilinear&jsonp=${cbName}`);
   
-  // ✅ Create JSONP callback function
+  // ✅ Global callback with logging
   window[cbName] = function(apiResults) {
+    console.log('✅ JSONP callback fired!', apiResults);
+    
     const elevations = apiResults.results
       .map(r => r.elevation)
       .filter(e => e !== null && !isNaN(e));
     
+    console.log('Elevations:', elevations);
+    
     if (elevations.length < 2) {
       userCallback({error: 'Insufficient data'});
-      delete window[cbName]; // Cleanup
+      delete window[cbName];
       return;
     }
     
     let gain = 0, threshold = 0.5;
     for (let i = 1; i < elevations.length; i++) {
-      if (elevations[i] - elevations[i-1] > threshold) {
-        gain += elevations[i] - elevations[i-1];
-      }
+      const delta = elevations[i] - elevations[i-1];
+      if (delta > threshold) gain += delta;
     }
     
+    console.log('Computed gain:', gain);
     userCallback({
       totalGain: Math.round(gain),
       pointsUsed: elevations.length,
       originalPoints: trackpoints.length,
       tolerance: tolerance.toFixed(6)
     });
-    delete window[cbName]; // Cleanup
+    delete window[cbName];
   };
   
-  // ✅ Load script with SIMPLE function name
   const script = document.createElement('script');
-  script.src = `https://api.opentopodata.org/v1/eudem25m?locations=${locations}&interpolation=bilinear&jsonp=${cbName}`;
+  script.src = `https://api.opentopodata.org/v1/copernicus?locations=${locations}&interpolation=bilinear&jsonp=${cbName}`;
+  script.onerror = () => {
+    console.error('❌ Script failed to load');
+    userCallback({error: 'API request failed'});
+    delete window[cbName];
+  };
+  script.onload = () => console.log('Script loaded');
+  
   document.head.appendChild(script);
+  
+  // Timeout fallback
+  setTimeout(() => {
+    if (window[cbName]) {
+      console.error('⏰ JSONP timeout');
+      userCallback({error: 'Timeout'});
+      delete window[cbName];
+    }
+  }, 10000);
 }
 
 function main() {
@@ -64,8 +88,9 @@ function main() {
   ];
 
   calculateElevationGain(sampleTrack, result => {
+    console.log('User callback:', result);
     if (result.error) {
-      document.body.innerHTML += `<h1>Error: ${result.error}</h1>`;
+      document.body.innerHTML += `<h1 style="color:red">Error: ${result.error}</h1>`;
     } else {
       document.body.innerHTML += `
         <h1>Elevation gain: ${result.totalGain}m</h1>
