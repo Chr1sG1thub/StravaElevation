@@ -21,7 +21,7 @@ function calculateElevationGain(trackpoints) {
   const cbName = 'mycallback'; // Fixed name - many APIs expect this
     
   // ✅ TRY copernicus FIRST (works reliably)
-  window[mycallback] = function(data) {
+  window[cbName] = function(data) {
     console.log('🎉 SUCCESS!', data);
     document.body.innerHTML += `<h1>Elevation gain: ${data.results.length * 100}m</h1>`;
   };
