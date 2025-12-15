@@ -23,8 +23,8 @@ async function calculateElevationGain(trackpoints) {
   const locations = line.geometry.coordinates
     .map(([lon, lat]) => `${lat.toFixed(6)},${lon.toFixed(6)}`)
     .join('|');
-    
-  const url = `https://api.opentopodata.org/v1/copernicus?locations=${locations}&interpolation=bilinear`;
+  
+  const url = `https://api.opentopodata.org/v1/eudem25m?locations=${locations}&interpolation=bilinear`;
   const response = await fetch(url);
   const { results } = await response.json();
   
